@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Main SCIM client for interacting with SCIM endpoints
 public actor SCIMClient {
