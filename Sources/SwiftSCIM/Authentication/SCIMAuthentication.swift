@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// Protocol for SCIM authentication providers
 public protocol SCIMAuthenticationProvider: Sendable {

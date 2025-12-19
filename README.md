@@ -19,7 +19,7 @@ A Swift client library for SCIM (System for Cross-domain Identity Management) 2.
 ## Requirements
 
 - Swift 6.1+
-- iOS 16.0+ / macOS 13.0+ / tvOS 16.0+ / watchOS 9.0+
+- Linux / macOS 13.0+ / iOS 16.0+ / tvOS 16.0+ / watchOS 9.0+
 
 ## Installation
 
