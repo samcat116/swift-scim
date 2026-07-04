@@ -1,0 +1,32 @@
+Sources/SwiftSCIM/Client/SCIMClient+Groups.swift
+  s_0c911eae26aecc::t_dfa3ecd8226144 70,74-78
+Sources/SwiftSCIM/Client/SCIMClient+Users.swift
+  s_0c911eae26aecc::t_fdb78ebed35e99 89,93-97
+Sources/SwiftSCIM/Client/SCIMClient.swift
+  s_0c911eae26aecc::t_48da9d9e28ce15 28,35,40,46,49-53,55-63
+  s_0c911eae26aecc::t_960be9e19f8078 47-48
+  s_0c911eae26aecc::t_b4f585a03abbf5 219-221,226,233-234,239-243
+  s_0c911eae26aecc::t_1bc87ba759fcae 54
+  s_0c911eae26aecc::t_958c95d94c2722 64
+Sources/SwiftSCIM/Authentication/SCIMAuthentication.swift
+  s_0c911eae26aecc::t_b29c0929024c2e 96-97,99,101
+  s_0c911eae26aecc::t_a97816d1df7db4 154-163
+Tests/SwiftSCIMTests/SwiftSCIMTests.swift
+  s_0c911eae26aecc::t_a1080d9fa83ce1 108-224
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "ade004d423e1bedd0aeeb23e203c869bfb5e58ed",
+  "prompts": {},
+  "sessions": {
+    "s_0c911eae26aecc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0df6e7e-7d8f-4f55-84df-d2e280740ad9",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Sam Schmitt <sam@samschmitt.com>"
+    }
+  }
+}
