@@ -67,11 +67,15 @@ extension SCIMClient {
     ///   - patchRequest: The patch operations to apply
     /// - Returns: The updated group
     public func patchGroup(id: String, patchRequest: SCIMPatchRequest) async throws -> SCIMGroup {
-        return try await patch(
+        if let updated = try await patch(
             path: "Groups/\(id)",
             body: patchRequest,
             responseType: SCIMGroup.self
-        )
+        ) {
+            return updated
+        }
+        // Server applied the patch but returned 204 No Content; fetch the current state
+        return try await getGroup(id: id)
     }
     
     /// Delete a group

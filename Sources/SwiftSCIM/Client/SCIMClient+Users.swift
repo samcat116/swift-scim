@@ -86,11 +86,15 @@ extension SCIMClient {
     ///   - patchRequest: The patch operations to apply
     /// - Returns: The updated user
     public func patchUser(id: String, patchRequest: SCIMPatchRequest) async throws -> SCIMUser {
-        return try await patch(
+        if let updated = try await patch(
             path: "Users/\(id)",
             body: patchRequest,
             responseType: SCIMUser.self
-        )
+        ) {
+            return updated
+        }
+        // Server applied the patch but returned 204 No Content; fetch the current state
+        return try await getUser(id: id)
     }
     
     /// Delete a user

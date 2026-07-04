@@ -96,12 +96,12 @@ public actor OAuth2AuthenticationProvider: SCIMAuthenticationProvider {
         
         var bodyComponents = [
             "grant_type=refresh_token",
-            "refresh_token=\(refreshToken)",
-            "client_id=\(clientId)"
+            "refresh_token=\(refreshToken.formURLEncoded)",
+            "client_id=\(clientId.formURLEncoded)"
         ]
-        
+
         if let clientSecret = clientSecret {
-            bodyComponents.append("client_secret=\(clientSecret)")
+            bodyComponents.append("client_secret=\(clientSecret.formURLEncoded)")
         }
         
         request.httpBody = bodyComponents.joined(separator: "&").data(using: .utf8)
@@ -151,6 +151,16 @@ public struct CustomAuthenticationProvider: SCIMAuthenticationProvider {
     
     public func refresh() async throws {
         try await refreshHandler()
+    }
+}
+
+extension String {
+    /// Percent-encoded for use as an application/x-www-form-urlencoded value.
+    /// Only unreserved characters (RFC 3986 §2.3) are left unescaped.
+    internal var formURLEncoded: String {
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "-._~")
+        return addingPercentEncoding(withAllowedCharacters: allowed) ?? self
     }
 }
 
