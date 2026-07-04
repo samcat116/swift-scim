@@ -25,23 +25,42 @@ public actor SCIMClient {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         self.dateFormatter = formatter
-        
+
         self.encoder = JSONEncoder()
         self.encoder.dateEncodingStrategy = .custom { date, encoder in
             let string = formatter.string(from: date)
             var container = encoder.singleValueContainer()
             try container.encode(string)
         }
-        
+
         self.decoder = JSONDecoder()
         self.decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             let string = try container.decode(String.self)
-            if let date = formatter.date(from: string) {
+            if let date = SCIMClient.parseSCIMDate(string) {
                 return date
             }
             throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid date format")
         }
+    }
+
+    // ISO8601DateFormatter is documented thread-safe; these are never mutated after creation
+    nonisolated(unsafe) private static let fractionalSecondsFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    nonisolated(unsafe) private static let internetDateTimeFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    /// Parse an RFC3339 timestamp, with or without fractional seconds
+    internal static func parseSCIMDate(_ string: String) -> Date? {
+        return fractionalSecondsFormatter.date(from: string)
+            ?? internetDateTimeFormatter.date(from: string)
     }
     
     /// Perform a raw HTTP request
@@ -197,25 +216,31 @@ public actor SCIMClient {
         }
     }
     
-    /// Perform a PATCH request with a body and decode the response
+    /// Perform a PATCH request with a body and decode the response.
+    /// Returns nil when the server replies 204 No Content (or an empty body),
+    /// which SCIM providers may do for a successful PATCH (RFC 7644 §3.5.2).
     internal func patch<T: Codable, R: Codable>(
         path: String,
         body: T,
         responseType: R.Type
-    ) async throws -> R {
+    ) async throws -> R? {
         let bodyData: Data
         do {
             bodyData = try encoder.encode(body)
         } catch {
             throw SCIMClientError.encodingError(error)
         }
-        
-        let (data, _) = try await performRequest(
+
+        let (data, response) = try await performRequest(
             method: .PATCH,
             path: path,
             body: bodyData
         )
-        
+
+        if response.statusCode == 204 || data.isEmpty {
+            return nil
+        }
+
         do {
             return try decoder.decode(responseType, from: data)
         } catch {

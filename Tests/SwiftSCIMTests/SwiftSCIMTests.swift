@@ -105,3 +105,120 @@ import Foundation
     let error = SCIMClientError.resourceNotFound
     #expect(error.localizedDescription == "Resource not found")
 }
+
+@Test func dateParsingAcceptsFractionalAndWholeSeconds() {
+    let withFractional = SCIMClient.parseSCIMDate("2026-03-21T12:34:56.000Z")
+    let withoutFractional = SCIMClient.parseSCIMDate("2026-03-21T12:34:56Z")
+
+    #expect(withFractional != nil)
+    #expect(withoutFractional != nil)
+    #expect(withFractional == withoutFractional)
+    #expect(SCIMClient.parseSCIMDate("not a date") == nil)
+}
+
+@Test func formURLEncodingEscapesReservedCharacters() {
+    #expect("a+b=c&d/e".formURLEncoded == "a%2Bb%3Dc%26d%2Fe")
+    #expect("simple-token_1.0~x".formURLEncoded == "simple-token_1.0~x")
+    #expect("secret with spaces".formURLEncoded == "secret%20with%20spaces")
+}
+
+#if canImport(Darwin)
+/// URLProtocol mock for exercising the client against canned HTTP responses
+final class MockURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var handler: (@Sendable (URLRequest) throws -> (HTTPURLResponse, Data))?
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let handler = MockURLProtocol.handler else {
+            client?.urlProtocol(self, didFailWithError: URLError(.unsupportedURL))
+            return
+        }
+        do {
+            let (response, data) = try handler(request)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
+}
+
+@Suite(.serialized) struct SCIMClientNetworkTests {
+    private func makeClient() -> SCIMClient {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        return SCIMClient(
+            baseURL: URL(string: "https://api.example.com/scim/v2")!,
+            httpClient: URLSession(configuration: configuration)
+        )
+    }
+
+    @Test func patchUserFallsBackToGetOn204NoContent() async throws {
+        let userJSON = Data("""
+        {
+            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+            "id": "user-123",
+            "userName": "testuser",
+            "active": false,
+            "meta": {
+                "resourceType": "User",
+                "created": "2026-03-21T12:34:56Z",
+                "lastModified": "2026-03-21T12:34:56.789Z"
+            }
+        }
+        """.utf8)
+
+        MockURLProtocol.handler = { request in
+            let statusCode = request.httpMethod == "PATCH" ? 204 : 200
+            let body = request.httpMethod == "PATCH" ? Data() : userJSON
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: statusCode,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (response, body)
+        }
+
+        let patchRequest = SCIMPatchRequest(operation: .replace(path: "active", boolValue: false))
+        let user = try await makeClient().patchUser(id: "user-123", patchRequest: patchRequest)
+
+        #expect(user.id == "user-123")
+        #expect(user.active == false)
+        // meta timestamps decode whether or not they carry fractional seconds
+        #expect(user.meta?.created != nil)
+        #expect(user.meta?.lastModified != nil)
+    }
+
+    @Test func patchGroupDecodesBodyWhenPresent() async throws {
+        let groupJSON = Data("""
+        {
+            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+            "id": "group-456",
+            "displayName": "Test Group"
+        }
+        """.utf8)
+
+        MockURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (response, groupJSON)
+        }
+
+        let patchRequest = SCIMPatchRequest(operation: .replace(path: "displayName", stringValue: "Test Group"))
+        let group = try await makeClient().patchGroup(id: "group-456", patchRequest: patchRequest)
+
+        #expect(group.id == "group-456")
+        #expect(group.displayName == "Test Group")
+    }
+}
+#endif
